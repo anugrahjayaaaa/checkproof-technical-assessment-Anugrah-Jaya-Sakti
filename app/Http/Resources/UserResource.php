@@ -16,11 +16,11 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name' => $this->name,
             'email' => $this->email,
+            'name' => $this->name,
             'role' => $this->role,
             'created_at' => $this->created_at,
-            'order_count' => $this->whenCounted('orders'),
+            'orders_count' => $this->whenCounted('orders'),
             'can_edit' => $request->user()
                 ? $request->user()->can('update', $this->resource)
                 : false,
