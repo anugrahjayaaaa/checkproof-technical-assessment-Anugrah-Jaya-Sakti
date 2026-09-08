@@ -30,4 +30,9 @@ class User extends Authenticatable
             'active' => 'boolean',
         ];
     }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }
