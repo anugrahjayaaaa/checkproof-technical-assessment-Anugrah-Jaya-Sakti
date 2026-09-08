@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UserIndexRequest;
+use App\Http\Resources\UserCreatedResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
@@ -67,7 +68,7 @@ class UserController extends Controller
             $request->validated()
         );
 
-        return new UserResource($user);
+        return new UserCreatedResource($user);
     }
 
     /**
