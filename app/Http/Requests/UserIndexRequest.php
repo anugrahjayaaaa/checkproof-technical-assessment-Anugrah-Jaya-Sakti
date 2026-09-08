@@ -24,9 +24,9 @@ class UserIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'search' => ['sometimes', 'string'],
-            'page' => ['sometimes', 'integer', 'min:1'],
-            'sortBy' => ['sometimes', 'string', Rule::in(['name', 'email', 'created_at'])],
+            'search' => ['sometimes', 'nullable', 'string'],
+            'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'sortBy' => ['sometimes', 'nullable', 'string', Rule::in(['name', 'email', 'created_at'])],
         ];
     }
 }

@@ -22,13 +22,15 @@ class UserController extends Controller
      */
     public function index(UserIndexRequest $request)
     {
+        $search = $request->input('search');
+        $page = $request->integer('page', 1);
+        $sortBy = $request->input('sortBy') ?: 'created_at';
+
         $users = User::query()
             ->where('active', true)
             ->when(
-                $request->filled('search'),
-                function ($query) use ($request) {
-                    $search = $request->input('search');
-
+                filled($search),
+                function ($query) use ($search) {
                     $query->where(function ($query) use ($search) {
                         $query
                             ->where('name', 'like', "%{$search}%")
@@ -37,12 +39,10 @@ class UserController extends Controller
                 }
             )
             ->withCount('orders')
-            ->orderBy(
-                $request->input('sortBy', 'created_at')
-            )
+            ->orderBy($sortBy)
             ->paginate(
                 perPage: 15,
-                page: $request->integer('page', 1)
+                page: $page
             );
 
         return response()->json([
