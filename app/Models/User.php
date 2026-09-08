@@ -27,6 +27,36 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active' => 'boolean',
         ];
     }
+
+    // ---- Start Helper Functions ----
+    public function isAdministrator(): bool
+    {
+        return $this->role === 'administrator';
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+    // ---- End Helper Functions ----
+
+    // ---- Start Relations ----
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+    // ---- End Relations ----
 }
