@@ -25,10 +25,17 @@ class UserPolicy
 
     /**
      * Determine whether the user can create models.
+     * Administrator can create manager and user
+     * Manager can create user
      */
-    public function create(User $user): bool
+    public function create(User $user, string $role): bool
     {
-        return false;
+        return match ($user->role) {
+            'administrator' => in_array($role, ['manager', 'user']),
+            'manager' => $role === 'user',
+            'user' => false,
+            default => false,
+        };
     }
 
     /**
@@ -36,13 +43,14 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return match ($user->role){
+        return match ($user->role) {
             // can edit any user
             'administrator' => true,
             // can only edit users with the role user
             'manager' => $model->role === 'user',
             // can only edit themselves
-            'user'=> $user->id === $model->id,
+            'user' => $user->id === $model->id,
+            default => false,
         };
     }
 
