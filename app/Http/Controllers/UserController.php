@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\IndexUserRequest;
 use App\Http\Requests\StoreUserRequest;
-use App\Http\Requests\UserIndexRequest;
-use App\Http\Resources\UserCreatedResource;
+use App\Http\Resources\UserCollection;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
@@ -20,34 +20,38 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(UserIndexRequest $request)
+    public function index(IndexUserRequest $request)
     {
-        $search = $request->input('search');
-        $page = $request->integer('page', 1);
-        $sortBy = $request->input('sortBy') ?: 'created_at';
+        $data = $request->validated();
 
-        $users = User::query()
+        $search = $data['search'] ?? null;
+        $page = $data['page'] ?? 1;
+        $sortBy = $data['sortBy'] ?? 'created_at';
+
+        $sortDirection = ($sortBy === 'created_at') ? 'desc' : 'asc';
+
+        $query = User::query()
             ->where('active', true)
-            ->when(
-                filled($search),
-                function ($query) use ($search) {
-                    $query->where(function ($query) use ($search) {
-                        $query
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-                }
-            )
-            ->withCount('orders')
-            ->orderBy($sortBy)
+            ->withCount('orders');
+
+        if (filled($search)) {
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query
+            ->orderBy($sortBy, $sortDirection)
             ->paginate(
-                perPage: 15,
-                page: $page
+                perPage: 10,
+                page: $page,
             );
 
         return response()->json([
             'page' => $users->currentPage(),
-            'users' => UserResource::collection($users->items()),
+            'users' => UserCollection::collection($users->items()),
         ]);
     }
 
@@ -68,7 +72,7 @@ class UserController extends Controller
             $request->validated()
         );
 
-        return (new UserCreatedResource($user))
+        return (new UserResource($user))
             ->response()
             ->setStatusCode(201);
     }

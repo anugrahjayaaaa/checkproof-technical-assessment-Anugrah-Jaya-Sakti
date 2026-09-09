@@ -5,14 +5,41 @@ namespace Tests\Feature\Api;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Tests\Feature\Support\AuthTestHelper;
 use Tests\TestCase;
 
 class UserStoreTest extends TestCase
 {
     use RefreshDatabase;
+    use AuthTestHelper;
 
+    private string $adminToken, $managerToken, $userToken;
     private string $endpoint = '/api/users';
     private string $email = 'john@example.com';
+    private string $password = '#Password123';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->createDummySeeder();
+
+
+        $this->adminToken = $this->login([
+            'email' => 'admin@example.com',
+            'password' => $this->password,
+        ]);
+
+        $this->managerToken = $this->login([
+            'email' => 'manager@example.com',
+            'password' => $this->password,
+        ]);
+
+        $this->userToken = $this->login([
+            'email' => 'user@example.com',
+            'password' => $this->password,
+        ]);
+    }
 
     private function validPayload(array $overrides = []): array
     {
@@ -23,22 +50,25 @@ class UserStoreTest extends TestCase
         ], $overrides);
     }
 
-    public function test_user_store_successfully(): void
+    public function test_admin_create_new_user(): void
     {
         Mail::fake();
 
-        $response = $this->postJson(
-            $this->endpoint,
-            $this->validPayload()
-        );
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload()
+            );
 
         $response
             ->assertCreated()
             ->assertJsonStructure([
-                'id',
-                'email',
-                'name',
-                'created_at',
+                'data' => [
+                    'id',
+                    'email',
+                    'name',
+                    'created_at',
+                ],
             ])
             ->assertJsonMissing([
                 'password' => 'password123',
@@ -52,9 +82,62 @@ class UserStoreTest extends TestCase
         ]);
     }
 
+    public function test_manager_create_new_user(): void
+    {
+        Mail::fake();
+
+        $response = $this->withHeaders($this->authHeaders($this->managerToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload()
+            );
+
+        $response
+            ->assertCreated()
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'email',
+                    'name',
+                    'created_at',
+                ],
+            ])
+            ->assertJsonMissing([
+                'password' => 'password123',
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'name' => 'John Doe',
+            'email' => $this->email,
+            'role' => 'user',
+            'active' => true,
+        ]);
+    }
+
+    public function test_user_create_new_user(): void
+    {
+        Mail::fake();
+
+        $response = $this->withHeaders($this->authHeaders($this->userToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload()
+            );
+
+        $response
+            ->assertForbidden()
+            ->assertJson([
+                'message' => 'This action is unauthorized.',
+            ])
+            ->assertJsonStructure([
+                'message',
+            ]);
+    }
+
     public function test_validation_errors(): void
     {
-        $response = $this->postJson($this->endpoint, []);
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson($this->endpoint, []);
 
         $response
             ->assertUnprocessable()
@@ -71,10 +154,11 @@ class UserStoreTest extends TestCase
             'email' => $this->email,
         ]);
 
-        $response = $this->postJson(
-            $this->endpoint,
-            $this->validPayload()
-        );
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload()
+            );
 
         $response
             ->assertUnprocessable()
@@ -83,12 +167,13 @@ class UserStoreTest extends TestCase
 
     public function test_password_must_be_at_least_8_characters(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            $this->validPayload([
-                'password' => '12345',
-            ])
-        );
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload([
+                    'password' => '12345',
+                ])
+            );
 
         $response
             ->assertUnprocessable()
@@ -97,10 +182,11 @@ class UserStoreTest extends TestCase
 
     public function test_password_hashed_in_database(): void
     {
-        $this->postJson(
-            $this->endpoint,
-            $this->validPayload()
-        );
+        $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                $this->validPayload()
+            );
 
         $user = User::where('email', $this->email)->first();
 
