@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class StoreUserRequest extends FormRequest
 {
@@ -12,7 +14,18 @@ class StoreUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $role = $this->input('role', 'user');
+    
+        return $this->user()?->can('create', [User::class, $role]) ?? false;
+    }
+
+    protected function failedAuthorization()
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'message' => 'This action is unauthorized.',
+            ], 403)
+        );
     }
 
     /**
