@@ -22,7 +22,7 @@ class UserStoreTest extends TestCase
     {
         parent::setUp();
 
-        $this->createDummySedeer();
+        $this->createDummySeeder();
 
 
         $this->adminToken = $this->login([

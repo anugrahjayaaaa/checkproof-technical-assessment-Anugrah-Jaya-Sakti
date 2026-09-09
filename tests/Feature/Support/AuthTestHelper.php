@@ -9,7 +9,7 @@ trait AuthTestHelper
 {
     protected User $testUser;
 
-    protected function createDummySedeer()
+    protected function createDummySeeder()
     {
         $password = '#Password123';
 
