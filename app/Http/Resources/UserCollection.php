@@ -5,10 +5,8 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class UserCreatedResource extends JsonResource
+class UserCollection extends JsonResource
 {
-    public static $wrap = null;
-
     /**
      * Transform the resource into an array.
      *
@@ -20,7 +18,12 @@ class UserCreatedResource extends JsonResource
             'id' => $this->id,
             'email' => $this->email,
             'name' => $this->name,
+            'role' => $this->role,
             'created_at' => $this->created_at,
+            'orders_count' => $this->whenCounted('orders'),
+            'can_edit' => $request->user()
+                ? $request->user()->can('update', $this->resource)
+                : false,
         ];
     }
 }

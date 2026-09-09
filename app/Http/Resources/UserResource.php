@@ -18,12 +18,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'email' => $this->email,
             'name' => $this->name,
-            'role' => $this->role,
             'created_at' => $this->created_at,
-            'orders_count' => $this->whenCounted('orders'),
-            'can_edit' => $request->user()
-                ? $request->user()->can('update', $this->resource)
-                : false,
         ];
     }
 }
