@@ -10,6 +10,33 @@ use Illuminate\Support\Facades\Mail;
 
 class UserService
 {
+    public function index(array $data){
+        $search = $data['search'] ?? null;
+        $page = $data['page'] ?? 1;
+        $sortBy = $data['sortBy'] ?? 'created_at';
+
+        $sortDirection = ($sortBy === 'created_at') ? 'desc' : 'asc';
+
+        $query = User::query()
+            ->where('active', true)
+            ->withCount('orders');
+
+        if (filled($search)) {
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        return $query
+            ->orderBy($sortBy, $sortDirection)
+            ->paginate(
+                perPage: 10,
+                page: $page,
+            );
+    }
+
     public function create(array $data): User
     {
         $user = User::create($data);

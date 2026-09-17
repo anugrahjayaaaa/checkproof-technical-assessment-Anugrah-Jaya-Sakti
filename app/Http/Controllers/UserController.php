@@ -22,32 +22,9 @@ class UserController extends Controller
      */
     public function index(IndexUserRequest $request)
     {
-        $data = $request->validated();
-
-        $search = $data['search'] ?? null;
-        $page = $data['page'] ?? 1;
-        $sortBy = $data['sortBy'] ?? 'created_at';
-
-        $sortDirection = ($sortBy === 'created_at') ? 'desc' : 'asc';
-
-        $query = User::query()
-            ->where('active', true)
-            ->withCount('orders');
-
-        if (filled($search)) {
-            $query->where(function ($query) use ($search) {
-                $query
-                    ->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query
-            ->orderBy($sortBy, $sortDirection)
-            ->paginate(
-                perPage: 10,
-                page: $page,
-            );
+        $users = $this->userService->index(
+            $request->validated()
+        );
 
         return response()->json([
             'page' => $users->currentPage(),
