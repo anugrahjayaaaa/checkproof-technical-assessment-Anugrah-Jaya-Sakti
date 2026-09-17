@@ -4,7 +4,9 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Support\AuthTestHelper;
 use Tests\TestCase;
 
@@ -13,152 +15,94 @@ class UserStoreTest extends TestCase
     use RefreshDatabase;
     use AuthTestHelper;
 
-    private string $adminToken, $managerToken, $userToken;
     private string $endpoint = '/api/users';
-    private string $email = 'john@example.com';
-    private string $password = '#Password123';
+    private string $newUserEmail = 'john@example.com';
+
+    private string $adminToken;
+    private string $managerToken;
+    private string $userToken;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->createDummySeeder();
+        $this->createSeededUsers();
 
-
-        $this->adminToken = $this->login([
-            'email' => 'admin@example.com',
-            'password' => $this->password,
-        ]);
-
-        $this->managerToken = $this->login([
-            'email' => 'manager@example.com',
-            'password' => $this->password,
-        ]);
-
-        $this->userToken = $this->login([
-            'email' => 'user@example.com',
-            'password' => $this->password,
-        ]);
+        $this->adminToken = $this->loginAsRole('administrator');
+        $this->managerToken = $this->loginAsRole('manager');
+        $this->userToken = $this->loginAsRole('user');
     }
 
     private function validPayload(array $overrides = []): array
     {
         return array_merge([
             'name' => 'John Doe',
-            'email' => $this->email,
-            'password' => 'password123',
+            'email' => $this->newUserEmail,
+            'password' => self::TEST_PASSWORD,
         ], $overrides);
     }
 
-    public function test_admin_create_new_user(): void
+    public static function createUserPermissionProvider(): array
+    {
+        return [
+            'admin creates user' => ['administrator', true],
+            'manager creates user' => ['manager', true],
+            'user forbidden from creating' => ['user', false],
+        ];
+    }
+
+    #[DataProvider('createUserPermissionProvider')]
+    public function test_create_user_authorization(string $role, bool $allowed): void
     {
         Mail::fake();
 
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload()
-            );
+        $response = $this->authJson('post', $this->endpoint, $this->loginAsRole($role), $this->validPayload());
 
-        $response
-            ->assertCreated()
-            ->assertJsonStructure([
-                'data' => [
+        if ($allowed) {
+            $response
+                ->assertCreated()
+                ->assertJsonStructure(['data' => [
                     'id',
                     'email',
                     'name',
-                    'created_at',
-                ],
-            ])
-            ->assertJsonMissing([
-                'password' => 'password123',
+                    'created_at'
+                ]])
+                ->assertJsonMissing(['password' => self::TEST_PASSWORD]);
+
+            $this->assertDatabaseHas('users', [
+                'email' => $this->newUserEmail,
+                'role' => 'user',
+                'active' => true,
             ]);
-
-        $this->assertDatabaseHas('users', [
-            'name' => 'John Doe',
-            'email' => $this->email,
-            'role' => 'user',
-            'active' => true,
-        ]);
-    }
-
-    public function test_manager_create_new_user(): void
-    {
-        Mail::fake();
-
-        $response = $this->withHeaders($this->authHeaders($this->managerToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload()
-            );
-
-        $response
-            ->assertCreated()
-            ->assertJsonStructure([
-                'data' => [
-                    'id',
-                    'email',
-                    'name',
-                    'created_at',
-                ],
-            ])
-            ->assertJsonMissing([
-                'password' => 'password123',
-            ]);
-
-        $this->assertDatabaseHas('users', [
-            'name' => 'John Doe',
-            'email' => $this->email,
-            'role' => 'user',
-            'active' => true,
-        ]);
-    }
-
-    public function test_user_create_new_user(): void
-    {
-        Mail::fake();
-
-        $response = $this->withHeaders($this->authHeaders($this->userToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload()
-            );
-
-        $response
-            ->assertForbidden()
-            ->assertJson([
-                'message' => 'This action is unauthorized.',
-            ])
-            ->assertJsonStructure([
-                'message',
-            ]);
+        } else {
+            $response
+                ->assertForbidden()
+                ->assertJson([
+                    'message' => 'This action is unauthorized.'
+                ]);
+        }
     }
 
     public function test_validation_errors(): void
     {
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson($this->endpoint, []);
+        $response = $this->authJson('post', $this->endpoint, $this->adminToken, []);
 
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'name',
                 'email',
-                'password',
+                'password'
             ]);
     }
 
     public function test_email_must_be_unique(): void
     {
         User::factory()->create([
-            'email' => $this->email,
+            'email' => $this->newUserEmail
         ]);
 
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload()
-            );
+        $response = $this->authJson('post', $this->endpoint, $this->adminToken, $this->validPayload());
 
         $response
             ->assertUnprocessable()
@@ -167,13 +111,12 @@ class UserStoreTest extends TestCase
 
     public function test_password_must_be_at_least_8_characters(): void
     {
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload([
-                    'password' => '12345',
-                ])
-            );
+        $response = $this->authJson(
+            'post',
+            $this->endpoint,
+            $this->adminToken,
+            $this->validPayload(['password' => '12345'])
+        );
 
         $response
             ->assertUnprocessable()
@@ -182,139 +125,36 @@ class UserStoreTest extends TestCase
 
     public function test_password_hashed_in_database(): void
     {
-        $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                $this->validPayload()
-            );
+        $this->authJson('post', $this->endpoint, $this->adminToken, $this->validPayload());
 
-        $user = User::where('email', $this->email)->first();
+        $user = User::where('email', $this->newUserEmail)->first();
 
         $this->assertNotNull($user);
-        $this->assertTrue(
-            \Hash::check('password123', $user->password)
+        $this->assertTrue(Hash::check(self::TEST_PASSWORD, $user->password));
+    }
+
+    public static function lengthValidationProvider(): array
+    {
+        return [
+            'name too short' => ['name', 'Jo'],
+            'name too long' => ['name', str_repeat('A', 51)],
+            'email too long' => ['email', str_repeat('a', 244) . '@example.com'],
+            'password too long' => ['password', str_repeat('A', 256)],
+        ];
+    }
+
+    #[DataProvider('lengthValidationProvider')]
+    public function test_store_validates_field_length(string $field, $value): void
+    {
+        $response = $this->authJson(
+            'post',
+            $this->endpoint,
+            $this->adminToken,
+            $this->validPayload([$field => $value])
         );
-    }
-
-    public function test_store_user_with_name_less_than_3_characters(): void
-    {
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                [
-                    'name' => 'Jo',
-                    'email' => $this->email,
-                    'password' => $this->password,
-                ]
-            );
 
         $response
             ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The name field must be at least 3 characters.',
-                'errors' => [
-                    'name' => [
-                        'The name field must be at least 3 characters.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'name',
-                ],
-            ]);
-    }
-
-    public function test_store_user_with_name_greater_than_50_characters(): void
-    {
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                [
-                    'name' => str_repeat('A', 51),
-                    'email' => $this->email,
-                    'password' => $this->password,
-                ]
-            );
-
-        $response
-            ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The name field must not be greater than 50 characters.',
-                'errors' => [
-                    'name' => [
-                        'The name field must not be greater than 50 characters.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'name',
-                ],
-            ]);
-    }
-
-    public function test_store_user_with_email_greater_than_255_characters(): void
-    {
-        $email = str_repeat('a', 244) . '@example.com';
-
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                [
-                    'name' => 'John Doe',
-                    'email' => $email,
-                    'password' => $this->password,
-                ]
-            );
-
-        $response
-            ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The email field must not be greater than 255 characters.',
-                'errors' => [
-                    'email' => [
-                        'The email field must not be greater than 255 characters.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'email',
-                ],
-            ]);
-    }
-
-    public function test_store_user_with_password_greater_than_255_characters(): void
-    {
-        $response = $this->withHeaders($this->authHeaders($this->adminToken))
-            ->postJson(
-                $this->endpoint,
-                [
-                    'name' => 'John Doe',
-                    'email' => $this->email,
-                    'password' => str_repeat('A', 256),
-                ]
-            );
-
-        $response
-            ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The password field must not be greater than 255 characters.',
-                'errors' => [
-                    'password' => [
-                        'The password field must not be greater than 255 characters.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'password',
-                ],
-            ]);
+            ->assertJsonValidationErrors([$field]);
     }
 }

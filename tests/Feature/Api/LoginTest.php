@@ -2,12 +2,9 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Tests\Feature\Support\AuthTestHelper;
 use Tests\TestCase;
-
 
 class LoginTest extends TestCase
 {
@@ -15,24 +12,19 @@ class LoginTest extends TestCase
     use AuthTestHelper;
 
     private string $endpoint = '/api/login';
-    private array $attributes = ['admin@example.com', '#Password123'];
 
     protected function setUp(): void
     {
-        parent::setup();
+        parent::setUp();
 
-        $this->createTestUser($this->attributes);
+        $this->createTestUser($this->adminCredentials());
     }
 
     public function test_login_with_valid_credentials(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            [
-                'email' => $this->attributes[0],
-                'password' => $this->attributes[1],
-            ]
-        );
+        $credentials = $this->adminCredentials();
+
+        $response = $this->postJson($this->endpoint, $credentials);
 
         $response
             ->assertOk()
@@ -40,8 +32,8 @@ class LoginTest extends TestCase
                 'message' => 'Login successful.',
                 'data' => [
                     'user' => [
-                        'email' => $this->attributes[0],
-                    ],
+                        'email' => $credentials['email']
+                    ]
                 ],
             ])
             ->assertJsonStructure([
@@ -51,120 +43,62 @@ class LoginTest extends TestCase
                         'id',
                         'email',
                         'name',
-                        'created_at',
+                        'created_at'
                     ],
-                    'token',
+                    'token'
                 ],
             ]);
 
-        $this->assertNotEmpty(
-            $response->json('data.token')
-        );
+        $this->assertNotEmpty($response->json('data.token'));
     }
 
     public function test_login_with_invalid_credentials(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            [
-                'email' => $this->attributes[0],
-                'password' => $this->attributes[1] . 'invalid',
-            ]
-        );
+        $credentials = $this->adminCredentials();
+
+        $response = $this->postJson($this->endpoint, [
+            'email' => $credentials['email'],
+            'password' => $credentials['password'] . 'invalid',
+        ]);
 
         $response
             ->assertUnauthorized()
             ->assertJson([
-                'data' => [
-                    'message' => 'Invalid credentials.',
-                ],
-            ])
-            ->assertJsonStructure([
-                'data' => [
-                    'message',
-                ]
+                'data' => ['message' => 'Invalid credentials.'],
             ]);
     }
 
     public function test_login_with_invalid_email(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            [
-                'email' => 'email',
-                'password' => $this->attributes[1] . 'invalid',
-            ]
-        );
+        $response = $this->postJson($this->endpoint, [
+            'email' => 'email',
+            'password' => $this->adminCredentials()['password'],
+        ]);
 
         $response
             ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The email field must be a valid email address.',
-                'errors' => [
-                    'email' => [
-                        'The email field must be a valid email address.'
-                    ]
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'email',
-                ],
-            ]);
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_login_with_missing_email(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            [
-                'password' => $this->attributes[1],
-            ]
-        );
+        $response = $this->postJson($this->endpoint, [
+            'password' => $this->adminCredentials()['password'],
+        ]);
 
         $response
             ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The email field is required.',
-                'errors' => [
-                    'email' => [
-                        'The email field is required.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'email',
-                ],
-            ]);
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_login_with_missing_password(): void
     {
-        $response = $this->postJson(
-            $this->endpoint,
-            [
-                'email' => $this->attributes[0],
-            ]
-        );
+        $response = $this->postJson($this->endpoint, [
+            'email' => $this->adminCredentials()['email'],
+        ]);
 
         $response
             ->assertUnprocessable()
-            ->assertJson([
-                'message' => 'The password field is required.',
-                'errors' => [
-                    'password' => [
-                        'The password field is required.',
-                    ],
-                ],
-            ])
-            ->assertJsonStructure([
-                'message',
-                'errors' => [
-                    'password',
-                ],
-            ]);
+            ->assertJsonValidationErrors(['password']);
     }
 }
