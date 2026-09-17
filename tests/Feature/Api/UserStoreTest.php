@@ -195,4 +195,126 @@ class UserStoreTest extends TestCase
             \Hash::check('password123', $user->password)
         );
     }
+
+    public function test_store_user_with_name_less_than_3_characters(): void
+    {
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                [
+                    'name' => 'Jo',
+                    'email' => $this->email,
+                    'password' => $this->password,
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The name field must be at least 3 characters.',
+                'errors' => [
+                    'name' => [
+                        'The name field must be at least 3 characters.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'name',
+                ],
+            ]);
+    }
+
+    public function test_store_user_with_name_greater_than_50_characters(): void
+    {
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                [
+                    'name' => str_repeat('A', 51),
+                    'email' => $this->email,
+                    'password' => $this->password,
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The name field must not be greater than 50 characters.',
+                'errors' => [
+                    'name' => [
+                        'The name field must not be greater than 50 characters.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'name',
+                ],
+            ]);
+    }
+
+    public function test_store_user_with_email_greater_than_255_characters(): void
+    {
+        $email = str_repeat('a', 244) . '@example.com';
+
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                [
+                    'name' => 'John Doe',
+                    'email' => $email,
+                    'password' => $this->password,
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The email field must not be greater than 255 characters.',
+                'errors' => [
+                    'email' => [
+                        'The email field must not be greater than 255 characters.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'email',
+                ],
+            ]);
+    }
+
+    public function test_store_user_with_password_greater_than_255_characters(): void
+    {
+        $response = $this->withHeaders($this->authHeaders($this->adminToken))
+            ->postJson(
+                $this->endpoint,
+                [
+                    'name' => 'John Doe',
+                    'email' => $this->email,
+                    'password' => str_repeat('A', 256),
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The password field must not be greater than 255 characters.',
+                'errors' => [
+                    'password' => [
+                        'The password field must not be greater than 255 characters.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'password',
+                ],
+            ]);
+    }
 }
