@@ -4,32 +4,38 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\Auth\AuthResource;
+use App\Http\Resources\Common\ErrorResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\AuthService;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private AuthService $authService
+    ) {}
+
     public function login(LoginRequest $request)
     {
-        $data = $request->validated();
+        $result = $this->authService->login(
+            $request->validated()
+        );
 
-        $user = User::where('email', $data['email'])->first();
-
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
-            return response()->json([
-                'message' => 'Invalid credentials.',
-            ], 401);
+        if (! $result['success']) {
+            return (new ErrorResource([
+                'message' => $result['message'],
+            ]))
+                ->response()
+                ->setStatusCode(401);
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful.',
-            'data' => [
-                'user' => new UserResource($user),
-                'token' => $token,
-            ],
-        ]);
+        return (new AuthResource($result))
+            ->additional([
+                'message' => 'Login successful.',
+            ])
+            ->response()
+            ->setStatusCode(200);
     }
 }

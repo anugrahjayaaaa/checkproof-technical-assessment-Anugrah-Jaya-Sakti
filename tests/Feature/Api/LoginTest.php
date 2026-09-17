@@ -75,10 +75,14 @@ class LoginTest extends TestCase
         $response
             ->assertUnauthorized()
             ->assertJson([
-                'message' => 'Invalid credentials.',
+                'data' => [
+                    'message' => 'Invalid credentials.',
+                ],
             ])
             ->assertJsonStructure([
-                'message',
+                'data' => [
+                    'message',
+                ]
             ]);
     }
 
