@@ -154,10 +154,27 @@ Response: `201 Created`
 
 Notes:
 - New users are created with default role `user` and `active = true`.
-- Two emails are sent on creation: one to the new user, one to the admin. If email sending fails, the user is still created successfully.
+- Two emails are sent on creation (asynchronously, see Queue & Worker): one to the new user, one to the admin. If email sending fails, the user is still created successfully.
 - Password is never included in the response.
 
 ---
+
+## Queue & Worker
+
+Emails sent on user creation are queued and processed asynchronously by a queue worker. The connection is set via `QUEUE_CONNECTION` (default: `database` — see `.env.example`).
+
+Run a worker locally:
+
+```bash
+php artisan queue:work
+```
+
+Production: keep the worker running with a process manager (e.g. Supervisor) and restart it on every deploy so it picks up new code.
+
+Notes:
+- Failed jobs are recorded in `failed_jobs`. Inspect with `php artisan queue:failed` and retry with `php artisan queue:retry <id>`.
+- Tests run jobs inline (`QUEUE_CONNECTION=sync`), so no worker is needed to run `php artisan test`.
+- `# pontry: UserCreateMail` carries the generated plaintext password in the queue payload; switch to a reset-link flow if credential-in-queue at rest is a concern.
 
 ## Testing
 
