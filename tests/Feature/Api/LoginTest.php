@@ -113,4 +113,58 @@ class LoginTest extends TestCase
                 ],
             ]);
     }
+
+    public function test_login_with_missing_email(): void
+    {
+        $response = $this->postJson(
+            $this->endpoint,
+            [
+                'password' => $this->attributes[1],
+            ]
+        );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The email field is required.',
+                'errors' => [
+                    'email' => [
+                        'The email field is required.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'email',
+                ],
+            ]);
+    }
+
+    public function test_login_with_missing_password(): void
+    {
+        $response = $this->postJson(
+            $this->endpoint,
+            [
+                'email' => $this->attributes[0],
+            ]
+        );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The password field is required.',
+                'errors' => [
+                    'password' => [
+                        'The password field is required.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'password',
+                ],
+            ]);
+    }
 }
