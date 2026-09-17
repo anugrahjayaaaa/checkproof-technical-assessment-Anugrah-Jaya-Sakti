@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends FormRequest
 {
@@ -39,6 +40,7 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'min:3', 'max:50'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'max:255'],
+            'role' => ['sometimes', 'string', Rule::in(['user', 'manager'])],
         ];
     }
 }

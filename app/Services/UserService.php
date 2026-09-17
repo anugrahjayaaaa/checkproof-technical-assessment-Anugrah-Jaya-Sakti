@@ -40,6 +40,8 @@ class UserService
     public function create(array $data): User
     {
         $user = User::create($data);
+        $user->role = $data['role'] ?? 'user';
+        $user->save();
 
         try {
             // Send email to user

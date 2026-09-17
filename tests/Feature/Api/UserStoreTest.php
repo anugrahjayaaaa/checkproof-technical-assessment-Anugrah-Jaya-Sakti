@@ -45,18 +45,19 @@ class UserStoreTest extends TestCase
     public static function createUserPermissionProvider(): array
     {
         return [
-            'admin creates user' => ['administrator', true],
-            'manager creates user' => ['manager', true],
-            'user forbidden from creating' => ['user', false],
+            'admin creates user' => ['administrator', 'user', true],
+            'admin creates manager' => ['administrator', 'manager', true],
+            'manager creates user' => ['manager', 'user', true],
+            'user forbidden from creating' => ['user', 'user', false],
         ];
     }
 
     #[DataProvider('createUserPermissionProvider')]
-    public function test_create_user_authorization(string $role, bool $allowed): void
+    public function test_create_user_authorization(string $actor, string $createdRole, bool $allowed): void
     {
         Mail::fake();
 
-        $response = $this->authJson('post', $this->endpoint, $this->loginAsRole($role), $this->validPayload());
+        $response = $this->authJson('post', $this->endpoint, $this->loginAsRole($actor), $this->validPayload(['role' => $createdRole]));
 
         if ($allowed) {
             $response
@@ -71,7 +72,7 @@ class UserStoreTest extends TestCase
 
             $this->assertDatabaseHas('users', [
                 'email' => $this->newUserEmail,
-                'role' => 'user',
+                'role' => $createdRole,
                 'active' => true,
             ]);
         } else {
