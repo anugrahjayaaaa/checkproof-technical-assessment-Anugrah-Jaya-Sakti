@@ -15,6 +15,7 @@ class UserIndexTest extends TestCase
     use AuthTestHelper;
 
     private string $token;
+    private string $endpoint = '/api/users';
 
     protected function setUp(): void
     {
@@ -37,7 +38,7 @@ class UserIndexTest extends TestCase
         User::factory()->create(['active' => false]);
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users');
+            ->getJson($this->endpoint . '');
 
         $response
             ->assertOk()
@@ -72,7 +73,7 @@ class UserIndexTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users?search=John');
+            ->getJson($this->endpoint . '?search=John');
 
         $response
             ->assertOk()
@@ -93,7 +94,7 @@ class UserIndexTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users?search=jane@example.com');
+            ->getJson($this->endpoint . '?search=jane@example.com');
 
         $response
             ->assertOk()
@@ -107,7 +108,7 @@ class UserIndexTest extends TestCase
         User::factory()->create(['name' => 'Alice']);
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users?sortBy=name');
+            ->getJson($this->endpoint . '?sortBy=name');
 
         $response->assertOk();
 
@@ -131,7 +132,7 @@ class UserIndexTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users');
+            ->getJson($this->endpoint . '');
 
         $userData = collect($response->json('users'))
             ->firstWhere('id', $user->id);
@@ -144,7 +145,7 @@ class UserIndexTest extends TestCase
         User::factory(20)->create();
 
         $response = $this->withHeaders($this->authHeaders($this->token))
-            ->getJson('/api/users?page=2');
+            ->getJson($this->endpoint . '?page=2');
 
         $response
             ->assertOk()
@@ -158,12 +159,87 @@ class UserIndexTest extends TestCase
 
         $response = $this->withHeaders($this->authHeaders($this->token))
             ->getJson(
-                '/api/users?search=&page=1&sortBy='
+                $this->endpoint . '?search=&page=1&sortBy='
             );
 
         $response
             ->assertOk()
             ->assertJsonPath('page', 1)
             ->assertJsonCount(4, 'users');
+    }
+
+    public function test_index_with_page_zero(): void
+    {
+        $response =  $this->withHeaders($this->authHeaders($this->token))
+            ->getJson(
+                $this->endpoint . '?page=0'
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The page field must be at least 1.',
+                'errors' => [
+                    'page' => [
+                        'The page field must be at least 1.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'page',
+                ],
+            ]);
+    }
+
+    public function test_index_with_negative_page(): void
+    {
+        $response =  $this->withHeaders($this->authHeaders($this->token))
+            ->getJson(
+                $this->endpoint . '?page=-1'
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The page field must be at least 1.',
+                'errors' => [
+                    'page' => [
+                        'The page field must be at least 1.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'page',
+                ],
+            ]);
+    }
+
+    public function test_index_with_non_integer_page(): void
+    {
+        $response =  $this->withHeaders($this->authHeaders($this->token))
+            ->getJson(
+                $this->endpoint . '?page=abc'
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJson([
+                'message' => 'The page field must be an integer.',
+                'errors' => [
+                    'page' => [
+                        'The page field must be an integer.',
+                    ],
+                ],
+            ])
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'page',
+                ],
+            ]);
     }
 }
