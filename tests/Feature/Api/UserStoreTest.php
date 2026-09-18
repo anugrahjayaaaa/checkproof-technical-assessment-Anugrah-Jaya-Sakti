@@ -62,12 +62,12 @@ class UserStoreTest extends TestCase
         if ($allowed) {
             $response
                 ->assertCreated()
-                ->assertJsonStructure(['data' => [
+                ->assertJsonStructure( [
                     'id',
                     'email',
                     'name',
                     'created_at'
-                ]])
+                ])
                 ->assertJsonMissing(['password' => self::TEST_PASSWORD]);
 
             $this->assertDatabaseHas('users', [

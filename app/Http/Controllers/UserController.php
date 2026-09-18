@@ -49,9 +49,10 @@ class UserController extends Controller
             $request->validated()
         );
 
-        return (new UserResource($user))
-            ->response()
-            ->setStatusCode(201);
+        return response()->json(
+            (new UserResource($user))->resolve(),
+            201
+        );
     }
 
     /**
